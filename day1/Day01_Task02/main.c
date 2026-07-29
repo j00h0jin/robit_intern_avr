@@ -51,9 +51,10 @@ int main(void)
     /* Replace with your application code */
 	DDRA = 0xFF;
 	DDRD = 0x00; // D2 -> SW 1번, D3 -> 2번
-	// DDRE = 0x00; // E4 -> 3번, E5 -> 4번 (INT2, 3, 4, 5 순)
+	DDRE = 0x00; // E4 -> 3번, E5 -> 4번 (INT2, 3, 4, 5 순)
 	
 	PORTD |= (1 << PIND2) | (1 << PIND3);
+	PORTE |= (1 << PINE4) | (1 << PINE5);
 	
 	EICRA |= (1 << ISC21) | (1 << ISC31); // INT0~3 -> EICRA, 4~7 -> B
 	
@@ -63,11 +64,26 @@ int main(void)
 	
     while (1) 
     {
-			PORTA = 0x00;
-			_delay_ms(500);
+			if(((PINE & (1 << PINE4)) == 0) && ((PINE & (1 << PINE5)) == 0))
+			{
+				PORTA = ~0xFF;
+			}
+			else if((PINE & (1 << PINE4)) == 0) 
+			{
+				PORTA = ~0xF0; // 1111 0000
+			}
+			else if((PINE & (1 << PINE5)) == 0)
+			{
+				PORTA = ~0x0F; // 1111 0000
+			}
+			else
+			{
+				PORTA = 0x00;
+				_delay_ms(500);
 
-			PORTA = 0xFF;
-			_delay_ms(500);
-    }
+				PORTA = 0xFF;
+				_delay_ms(500);
+			}
+	}
 }
 
