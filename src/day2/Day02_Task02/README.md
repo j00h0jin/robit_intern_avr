@@ -35,8 +35,6 @@
 [ATmega128A]                     [Target Component]
  PORTF PF0                       ----->   Potentiometer
  PORTD Pin 0, 1 (PIND0, PIND1)   ----->   LCD(I2C)
- PORTD Pin 2, 3 (PIND2, PIND3)   ----->   Switch 1, 2
- PORTE Pin 4, 5 (PINE4, PINE5)   ----->   Switch 3, 4
 ```
 
 ### 주요 회로 특징
