@@ -127,7 +127,7 @@ while (1)
 
 | 정면 동작 모습 | 
 | :---: | 
-| ![Hardware Setup](https://drive.google.com/file/d/1OTVlsBYQZYYMvsRXXIyHOOPH9vhQXzbZ/view?usp=drive_link) | 
+| [동작 영상](https://drive.google.com/file/d/1OTVlsBYQZYYMvsRXXIyHOOPH9vhQXzbZ/view?usp=drive_link) | 
 
 ---
 
