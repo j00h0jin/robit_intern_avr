@@ -1,149 +1,273 @@
 ﻿#include "LCD_Text.h"
 
-//------------------------------------------------------------------------------
-// LCD 초기화 함수
-//------------------------------------------------------------------------------
-void lcdInit(void)
-{
-	_delay_ms(30);
-	LCD_PORT_SETUP();
-	LCD_PORT &= 0xFB;	//E = 0
-	_delay_ms(15);
-	
-	lcdCommand(0x20);
-	_delay_ms(5);
-	
-	lcdCommand(0x20);
-	delay_us(200);
-	
-	lcdCommand(0x20);
-	lcdCommand(FUNCSET);
-	lcdCommand(DISPON);
-	lcdCommand(ALLCLR);
-	lcdCommand(ENTMODE);
-	
-	lcdString(0,0,"Init OK");
-}
+// PCF8574T
+#define LCD_RS         0x01
+#define LCD_RW         0x02
+#define LCD_ENABLE     0x04
+#define LCD_BACKLIGHT  0x08
 
-//------------------------------------------------------------------------------
-// LCD 지우기 함수
-//------------------------------------------------------------------------------
-void lcdClear(void)
+
+
+// Software I2C Delay
+static void I2C_Delay(void)
 {
-	lcdCommand(ALLCLR);
+	_delay_us(5);
 }
 
 
-//------------------------------------------------------------------------------
-// 문자열 출력 함수
-//------------------------------------------------------------------------------
-void lcdString(U8 line, U8 col, char  *str)
+static void SDA_HIGH(void)
 {
-	char  *pStr = 0;
-	
-	lcdDisplayPosition( line, col );
-	pStr = str;
-	while(*pStr)
+	I2C_DDR &= ~(1<<SDA);
+	I2C_PORT |= (1<<SDA);
+}
+
+
+static void SDA_LOW(void)
+{
+	I2C_DDR |= (1<<SDA);
+	I2C_PORT &= ~(1<<SDA);
+}
+
+
+static void SCL_HIGH(void)
+{
+	I2C_DDR &= ~(1<<SCL);
+	I2C_PORT |= (1<<SCL);
+}
+
+
+static void SCL_LOW(void)
+{
+	I2C_DDR |= (1<<SCL);
+	I2C_PORT &= ~(1<<SCL);
+}
+
+
+
+// I2C
+static void I2C_Start(void)
+{
+	SDA_HIGH();
+	SCL_HIGH();
+
+	I2C_Delay();
+
+	SDA_LOW();
+
+	I2C_Delay();
+
+	SCL_LOW();
+}
+
+static void I2C_Stop(void)
+{
+	SDA_LOW();
+
+	SCL_HIGH();
+
+	I2C_Delay();
+
+	SDA_HIGH();
+
+	I2C_Delay();
+}
+
+static void I2C_Write(uint8_t data)
+{
+	uint8_t i;
+
+
+	for(i=0;i<8;i++)
 	{
-		lcdData(*pStr++);
+		if(data & 0x80)
+		SDA_HIGH();
+		else
+		SDA_LOW();
+
+
+		SCL_HIGH();
+
+		I2C_Delay();
+
+		SCL_LOW();
+
+		data <<= 1;
 	}
+
+
+	// ACK
+	SDA_HIGH();
+
+	SCL_HIGH();
+
+	I2C_Delay();
+
+	SCL_LOW();
 }
 
-//------------------------------------------------------------------------------
-// 숫자 출력 함수
-//------------------------------------------------------------------------------
-void lcdNumber(U8 line, U8 col, int num)
+static void PCF8574_Write(uint8_t data)
 {
-	char byte[100] = {0, };
-	
-	sprintf(byte,"%d",num);
-	
-	lcdString(line, col, byte);
+	I2C_Start();
+
+	I2C_Write((LCD_ADDR<<1)|0);
+
+	I2C_Write(data);
+
+	I2C_Stop();
 }
 
-
-
-
-//------------------------------------------------------------------------------
-// 명령 함수
-//------------------------------------------------------------------------------
-void lcdCommand(U8 byte)
+// LCD 
+static void LCD_Enable(uint8_t data)
 {
-	busy();
-	//인스트럭션 상위 바이트
-	LCD_PORT = (byte & 0xf0); //data
-	LCD_PORT &= 0xfe;  //RS = 0
-	LCD_PORT &= 0xfd;  //RW = 0
-	delay_us(1);
-	LCD_PORT |= 0x04;  //E = 1
-	delay_us(1);
-	LCD_PORT &= 0xfb;  //E = 0
-	//instruction low byte
-	LCD_PORT = ((byte<<4) & 0xf0); //data
-	LCD_PORT &= 0xfe;  //RS = 0
-	LCD_PORT &= 0xfd;  //RW = 0
-	delay_us(1);
-	LCD_PORT |= 0x04;  //E = 1
-	delay_us(1);
-	LCD_PORT &= 0xfb;  //E = 0
-}
-//------------------------------------------------------------------------------
-// 데이타 쓰기 함수
-//------------------------------------------------------------------------------
-void lcdData(U8 byte)
-{
-	busy();
-	//data high byte
-	LCD_PORT = (byte & 0xF0); //data
-	LCD_PORT |= 0x01;  //RS = 1
-	LCD_PORT &= 0xfd;  //RW = 0
-	delay_us(1);
-	LCD_PORT |= 0x04;  //E = 1
-	delay_us(1);
-	LCD_PORT &= 0xfb;  //E = 0
-	//data low byte
-	LCD_PORT = ((byte<<4) & 0xF0); //data
-	LCD_PORT |= 0x01;  //RS = 1
-	LCD_PORT &= 0xfd;  //RW = 0
-	delay_us(1);
-	LCD_PORT |= 0x04;  //E = 1
-	delay_us(1);
-	LCD_PORT &= 0xfb;  //E = 0
+	PCF8574_Write(data | LCD_ENABLE);
+
+	_delay_us(1);
+
+	PCF8574_Write(data & ~LCD_ENABLE);
+
+	_delay_us(50);
 }
 
-//------------------------------------------------------------------------------
-//                 Display Position Setting Function
-//------------------------------------------------------------------------------
-void lcdDisplayPosition( U8 line, U8 col )
+static void LCD_Send4(uint8_t data)
 {
-	if(line == 0)		lcdCommand( LINE1 + col );
-	else				lcdCommand( LINE2 + col );
+	data |= LCD_BACKLIGHT;
+
+	LCD_Enable(data);
 }
 
-
-
-//------------------------------------------------------------------------------
-//                 Delay Function
-//------------------------------------------------------------------------------
-void busy(void)
+static void LCD_Command(uint8_t cmd)
 {
+	uint8_t high;
+	uint8_t low;
+
+
+	high = cmd & 0xF0;
+	low  = (cmd<<4)&0xF0;
+
+
+	LCD_Send4(high);
+	LCD_Send4(low);
+
 	_delay_ms(2);
 }
 
-// 16Mhz
-//	1 cycle = 0.0625 us
-// 16 cycke = 1 us
-void delay_us(U16 time_us)
+static void LCD_Data(uint8_t data)
 {
-	register U16 i;
-	
-	for(i = 0; i < time_us; i++)				/* 4 cycle +				*/
+	uint8_t high;
+	uint8_t low;
+
+
+	high = data & 0xF0;
+	low  = (data<<4)&0xF0;
+
+
+	LCD_Send4(high | LCD_RS);
+	LCD_Send4(low  | LCD_RS);
+
+	_delay_us(50);
+}
+
+
+// custom
+void lcdInit(void)
+{
+	// SDA/SCL release
+	SDA_HIGH();
+	SCL_HIGH();
+
+
+	_delay_ms(50);
+
+
+	// 4bit mode init
+
+	LCD_Send4(0x30);
+	_delay_ms(5);
+
+	LCD_Send4(0x30);
+	_delay_us(150);
+
+	LCD_Send4(0x30);
+
+	LCD_Send4(0x20);
+
+
+	LCD_Command(0x28); // 4bit, 2line
+
+	LCD_Command(0x0C); // Display ON
+
+	LCD_Command(0x06); // Entry mode
+
+	LCD_Command(0x01); // Clear
+
+
+	_delay_ms(5);
+}
+
+
+
+void lcdClear(void)
+{
+	LCD_Command(0x01);
+
+	_delay_ms(2);
+}
+
+
+static void lcdGoto(uint8_t row,uint8_t col)
+{
+	uint8_t addr;
+
+
+	if(row==0)
+	addr=0x00;
+	else
+	addr=0x40;
+
+
+	addr += col;
+
+
+	LCD_Command(0x80 | addr);
+}
+
+
+void lcdString(uint8_t row,uint8_t col,char *str)
+{
+	lcdGoto(row,col);
+
+
+	while(*str)
 	{
-		asm volatile(" PUSH  R0 ");				/* 2 cycle +				*/
-		asm volatile(" POP   R0 ");				/* 2 cycle +				*/
-		asm volatile(" PUSH  R0 ");				/* 2 cycle +				*/
-		asm volatile(" POP   R0 ");				/* 2 cycle +				*/
-		asm volatile(" PUSH  R0 ");				/* 2 cycle +				*/
-		asm volatile(" POP   R0 ");				/* 2 cycle    =  16 cycle		*/
+		LCD_Data(*str);
+
+		str++;
 	}
+}
+
+
+void lcdNumber(uint8_t row,uint8_t col,int number)
+{
+	char buf[16];
+
+
+	lcdGoto(row,col);
+
+
+	sprintf(buf, "%3d", number);
+
+
+	lcdString(row,col,buf);
+}
+
+void lcdFloat(uint8_t row,uint8_t col,float number, uint8_t decimals)
+{
+	char buf[16];
+
+
+	lcdGoto(row,col);
+
+	dtostrf(number, 1, decimals, buf);
+
+	lcdString(row,col,buf);
 }
