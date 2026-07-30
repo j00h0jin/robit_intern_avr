@@ -11,6 +11,8 @@
 #include <avr/interrupt.h>
 #include <util/delay.h>
 
+int i = 0;
+
 ISR(INT2_vect)
 {
 	_delay_ms(15); // 채터링 문제가 있어 채터링 방지 코드 삽입
@@ -22,13 +24,13 @@ ISR(INT2_vect)
 	
 	PORTA = ~0x07; // 0000 0111
 	
-	for (int i = 0; i < 13; i++)
+	for (int i = 0; i < 13; i++) // 2바퀴 (8비트 x 2 = 16, 16 - 3(LED칸수))
 	{
 		_delay_ms(100);
 		
 		if(PORTA & (1 << 7)) { // 0000 0001 << 7 = 1000 0000
-			PORTA = PORTA << 1;
-			PORTA |= 0x01;
+			PORTA = PORTA << 1; // 비트 밀기
+			PORTA |= 0x01; // 끝 비트 0 설정(0000 0001 OR 연산, 0부분은 그대로 끝에만 1로 바뀜)
 		}
 		else
 		{
@@ -39,7 +41,7 @@ ISR(INT2_vect)
 
 ISR(INT3_vect)
 {
-	_delay_ms(15); // 채터링 문제가 있어 채터링 방지 코드 삽입
+	_delay_ms(15); // 채터링 방지
 	if((PIND & (1<<PIND3))!=0)
 	{
 		EIFR = ( 1<< INTF3);
@@ -65,14 +67,14 @@ ISR(INT3_vect)
 
 ISR(INT4_vect)
 {
-	_delay_ms(15);
+	_delay_ms(15); // 채터링 방지
 	if((PINE & (1<<PINE4))!=0)
 	{
 		EIFR = ( 1<< INTF4);
 		return;
 	}
 	
-	PORTA = 0xFF;
+	PORTA = 0xFF; // day01 task02 로직
 	for (int i = 0; i < 8; i++)
 	{
 		PORTA = ~(1<<i);
@@ -88,15 +90,15 @@ ISR(INT4_vect)
 
 ISR(INT5_vect)
 {
-	_delay_ms(15);
+	_delay_ms(15); // 채터링 방지
 	if((PINE & (1<<PINE5))!=0)
 	{
 		EIFR = ( 1<< INTF5);
 		return;
 	}
-	
-	PORTA = 0xFF;
+	i = 0; // 전역 변수 i 초기화 (2진 카운터에 쓰는)
 }
+
 
 int main(void)
 {
@@ -114,29 +116,15 @@ int main(void)
 	
 	sei(); // 인터럽트 활성화
 	
-	
 	while (1)
 	{
-			PORTA = 0xFF;
-			_delay_ms(500);
-			
-			for (int i = 0; i < 256; i++)
-			{
-				for (int j = 0; j < 8; j++)
-				{
-					if((PINA & (1 << j))!=0)
-					{
-						PORTA |= (1 << j);
-					}
-					else
-					{
-						PORTA == PORTA << 1;
-						
-					}
-					_delay_ms(500);
-				}
-				
-			}
-	
-	}
+		PORTA = ~i;
+		_delay_ms(200);
+		if(i == 255) // 1111 1111이면 i=0으로 초기화
+		{
+			i = 0;
+			continue;
+		}
+		i++;
+	}	
 }
