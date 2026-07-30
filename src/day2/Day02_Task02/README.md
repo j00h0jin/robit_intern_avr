@@ -32,7 +32,7 @@
 ### Pin Configuration
 
 ```text
-[ATmega128A]                     [Target Component]
+[ATmega128A]                            [Target Component]
  PORTF PF0                       ----->   Potentiometer
  PORTD Pin 0, 1 (PIND0, PIND1)   ----->   LCD(I2C)
 ```
