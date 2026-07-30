@@ -56,7 +56,7 @@
 
 ## 5. 핵심 코드 및 레지스터 설정 (Key Implementation)
 
-### 타이머/카운터 및 PWM 초기화 예시 (`timer.c`)
+### 인터럽 예시 (`main.c`)
 ```c
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -103,9 +103,13 @@ ISR(INT3_vect)
 ## 6. 동작 설명 및 결과 (Results)
 
 ### 동작 시나리오
-1. 시스템 전원 인가 시 ATmega128 주변장치(UART, Timer, ADC) 초기화함
-2. 센서 입력 값 및 인터럽트 신호 수신함
-3. PWM 제어를 통한 액추에이터 제어 및 UART 시리얼 데이터 출력함
+1. 0.5s 마다 모든 LED 깜빡이기
+_delay_ms() 함수를 사용할것
+2. SW1이 눌리면 4~7 LED 켜기
+3. SW2이 눌리면 0~3 LED 켜기
+4. 둘 다 눌리면 모두 켜기
+5. INT3 발생시 LED 좌측 이동
+6. INT4 발생시 LED 우측 이동
 
 ### 동작 사진 / 영상
 
