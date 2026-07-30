@@ -34,8 +34,8 @@
 ```text
 [ATmega128A]                     [Target Component]
  PORTA (PA0 ~ PA7)               ----->   8-Bit LED
- PORTD Pin 2, 3 (PINB2, PINB3)   ----->   Switch 1, 2
- PORTE Pin 4, 5 (PINB4, PINB5)   ----->   Switch 3, 4
+ PORTD Pin 2, 3 (PIND2, PIND3)   ----->   Switch 1, 2
+ PORTE Pin 4, 5 (PINE4, PINE5)   ----->   Switch 3, 4
 ```
 
 ### 주요 회로 특징
