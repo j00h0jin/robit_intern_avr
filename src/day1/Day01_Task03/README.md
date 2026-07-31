@@ -32,7 +32,7 @@
 ### Pin Configuration
 
 ```text
-[ATmega128A]                     [Target Component]
+[ATmega128A]                            [Target Component]
  PORTA (PA0 ~ PA7)               ----->   8-Bit LED
  PORTD Pin 2, 3 (PIND2, PIND3)   ----->   Switch 1, 2
  PORTE Pin 4, 5 (PINE4, PINE5)   ----->   Switch 3, 4
@@ -136,7 +136,7 @@ while (1)
 
 | 도구명 (Tool) | 활용 영역 | 세부 사용 목적 및 내용 |
 | :--- | :--- | :--- |
-| **Gemini** | 개념 정리 & 모듈 설계 | - ATmega128 특정 비트 수를 읽어오는 방법의 논리, 이진 카운터를 다른 방법으로 구현할 수 있는 방법이 있는지 |
+| **Gemini** | 개념 정리 & 모듈 설계 | - ATmega128 특정 비트 수를 읽어오는 방법의 논리, 이진 카운터를 다른 방법으로 구현할 수 있는 방법이 있는지, 채터링 발생 원인 |
 
 ### AI 활용 및 검증 원칙
 1. **코드 검증:** AI가 생성한 레지스터 설정 및 함수 코드는 데이터시트(ATmega128 Datasheet)와 비교 검증한 후 실제 오실로스코프/시리얼 모니터링을 거쳐 직접 수정 및 테스트하였습니다.
