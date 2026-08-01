@@ -100,7 +100,8 @@
   <avrgcc.compiler.directories.IncludePaths>
     <ListValues>
       <Value>%24(PackRepoDir)\atmel\ATmega_DFP\1.7.374\include\</Value>
-      <Value>../DynamixelSDK</Value>
+      <Value>%24(ProjectDir)DynamixelSDK\include</Value>
+      <Value>%24(ProjectDir)DynamixelSDK\src</Value>
     </ListValues>
   </avrgcc.compiler.directories.IncludePaths>
   <avrgcc.compiler.optimization.level>Optimize debugging experience (-Og)</avrgcc.compiler.optimization.level>
@@ -126,34 +127,10 @@
     <Compile Include="DynamixelSDK\include\dynamixel_sdk.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="DynamixelSDK\include\group_bulk_read.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\include\group_bulk_write.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\include\group_sync_read.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\include\group_sync_write.h">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="DynamixelSDK\include\packet_handler.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="DynamixelSDK\include\port_handler.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\include\port_handler_linux.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\include\port_handler_mac.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\include\port_handler_windows.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\include\protocol1_packet_handler.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="DynamixelSDK\include\protocol2_packet_handler.h">
@@ -162,34 +139,10 @@
     <Compile Include="DynamixelSDK\include\robotis_def.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="DynamixelSDK\src\group_bulk_read.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\src\group_bulk_write.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\src\group_sync_read.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\src\group_sync_write.c">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="DynamixelSDK\src\packet_handler.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="DynamixelSDK\src\port_handler.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\src\port_handler_linux.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\src\port_handler_mac.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\src\port_handler_windows.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="DynamixelSDK\src\protocol1_packet_handler.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="DynamixelSDK\src\protocol2_packet_handler.c">
@@ -199,9 +152,6 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="main.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="read_write_example.c">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>
