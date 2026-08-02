@@ -57,43 +57,50 @@ int main(void)
 {
 	UBRR0L = 16; // 57600
 	UBRR0H = 0;
-	UCSR0A = 0x20;
+	UCSR0A = 0x20; // 송신 상태비트 초기화
 	UCSR0B = 0x18;
 	UCSR0C = 0x06; // data 8bit
 	
-	DDRE = 0x06; // E0 입력, E1 출력, E2 출력 0000 0110
+	DDRE = 0x06; // 0000 0110
+	PORTE |= (1 << PE2);
 	
 	ADMUX = 0x40; // 0100 0000 외부의 AVCC 전압 사용
 	ADCSRA = 0x87; // 1000 0111 ADC 활성화, 클럭 분주비 128
 
 	SREG = 0x80; // 전역 인터럽트 허용
 	
-	unsigned int op_mode = 3; // position control mode
-	unsigned int torque_on = 1; // 1 = on
-	unsigned int targetLocation = 0; // 0 ~ 4095
-	unsigned int prevLocation = 0;
-	unsigned int targetSpeed = 150; // 목표 속도: 0~32767
+	unsigned char op_mode = 3; // position control mode, 1Byte
+	unsigned char torque_on = 1; // 1 = on, 1Byte
+	unsigned char torque_off = 0; // 0 = off, 1Byte
+	unsigned long targetLocation = 0; // 0 ~ 4095
+	unsigned long prevLocation = 0;
+	unsigned long targetSpeed = 150; // 목표 속도: 0~32767
 	
 	int potentiometerValue = 0; // 가변저항 값 : 0~1023
 	
 	lcdInit();
 	lcdClear();
 	
-	dxl_write_data(11, (unsigned char *)&op_mode, sizeof(op_mode)); // 11 = operating mode
-	dxl_write_data(64, (unsigned char *)&torque_on, sizeof(torque_on)); // 64 = torque enable
-	_delay_ms(20);
+	dxl_write_data(64, &torque_off, 1); // 64 = torque enable
+	_delay_ms(100);
+	dxl_write_data(11, &op_mode, 1); // 11 = operating mode
+	_delay_ms(100);
+	dxl_write_data(64, &torque_on, 1); // 64 = torque enable
+	_delay_ms(100);
 	
 	while (1)
 	{
+		
 		if(UCSR0A & (1<<RXC0)) // UDR0 = 1 => 수신 버퍼에 아직 안 읽은 데이터가 존재하는 상태 
 		{
 			int recvData = UDR0; // 값 받기
+			// Uart_Putch(recvData);
 			for (int i = 48; i < 58; i++) // 0 ~ 9인 경우
 			{
 				if (recvData == i)
 				{
 					targetSpeed = (recvData - 47) * 30; // target speed 설정, 0~9, 0~300(목표 속도)
-					dxl_write_data(112, (unsigned char *)&targetSpeed, sizeof(targetSpeed)); // 112 = profile velocity
+					dxl_write_data(112, (unsigned char *)&targetSpeed, 4); // 112 = profile velocity
 					break;
 				}
 			}
@@ -102,18 +109,20 @@ int main(void)
 		targetLocation = (unsigned int)(potentiometerValue) * 4; // 0~1023, 0~4095
 		if (abs((int)targetLocation - (int)prevLocation) > 8)
 		{
-			dxl_write_data(116, (unsigned char *)&targetLocation, sizeof(targetLocation)); // 116 = goal position
+			dxl_write_data(116, (unsigned char *)&targetLocation, 4); // 116 = goal position
 			prevLocation = targetLocation;
 		}
 		
 		lcdString(0, 0, "vel: ");
-		lcdString(0, 8, "    ");
+		lcdString(0, 8, "     ");
 		lcdNumber(0, 8, (int)targetSpeed);
-		lcdString(0, 8, "    ");
 		lcdString(1, 0, "pos: ");
+		lcdString(1, 8, "     ");
 		lcdNumber(1, 8, (int)targetLocation);
 		
+		PORTE |= (1 << PE2);
 		_delay_ms(20);
+		
 	}
 }
 
@@ -192,6 +201,7 @@ void dxl_write_data(unsigned short address, unsigned char *p_data, unsigned shor
 
 	// MAX485 송신 모드
 	PORTE |= (1 << PE2); // PE2 = HIGH(=송신 모드)
+	_delay_ms(20);
 
 	// UART로 transmit
 	for (unsigned short i = 0; i < total_len; i++) {
@@ -201,6 +211,8 @@ void dxl_write_data(unsigned short address, unsigned char *p_data, unsigned shor
 	while (!(UCSR0A & (1 << TXC0))); // 송신 데이터가 모두 전송되고 UDRE0의 송신 버퍼에 새로운 송신 데이터가 write되지 않은 상태
 	
 	UCSR0A |= (1 << TXC0); // TXC0 플래그 클리어
+	
+	_delay_ms(100);
 
 	// MAX485 수신 모드
 	PORTE &= ~(1 << PE2); // PE2 = LOW(=수신 모드)
