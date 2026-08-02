@@ -80,7 +80,7 @@ int main(void)
 	
 	lcdInit();
 	lcdClear();
-	
+
 	dxl_write_data(64, &torque_off, 1); // 64 = torque enable
 	_delay_ms(100);
 	dxl_write_data(11, &op_mode, 1); // 11 = operating mode
