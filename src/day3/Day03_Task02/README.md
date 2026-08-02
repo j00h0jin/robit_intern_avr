@@ -34,9 +34,9 @@
 ### Pin Configuration
 
 ```text
-[ATmega128]                 [Target Component]
- PORTA (PA0 ~ PA7)   ----->   8-Bit LED
- PE0 (RXD0) / PE1    ----->   UART Serial Communication
+[ATmega128]                             [Target Component]
+ PORTA (PA0 ~ PA7)               ----->   8-Bit LED
+ PE0 (RXD0) / PE1                ----->   UART Serial Communication
  PORTD Pin 2, 3 (PIND2, PIND3)   ----->   Switch 1, 2
  PORTE Pin 4, 5 (PINE4, PINE5)   ----->   Switch 3, 4
 ```
