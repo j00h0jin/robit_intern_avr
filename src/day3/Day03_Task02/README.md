@@ -1,8 +1,8 @@
-# ATmega128 과제 및 프로젝트 템플릿
+# Day03_Task02
 
 > **광운대학교 로봇학부**  
 > **작성자:** 주호진  
-> **제출일:** (날짜)
+> **제출일:** 2026.08.02
 
 ---
 
@@ -13,8 +13,7 @@
 ### 핵심 목표
 
 - ATmega128 레지스터 설정을 통한 주변장치 제어
-- 센서 및 외부 모듈과의 통신 (USART / SPI / I2C 등) 및 데이터 처리
-- 타이머/카운터를 활용한 PWM 출력 및 인터럽트 제어
+- 센서 및 외부 모듈과의 통신 (USART) 및 데이터 처리
 
 ---
 
@@ -26,7 +25,7 @@
 | **IDE / Compiler** | Microchip Studio 7.0 / Microchip AVR GCC        |
 | **Flasher Tool**   | USBISP / STK500                                 |
 | **언어**           | C Language                                      |
-| **주요 부품**      | ATmega128 개발보드, DC/STEP 모터, ADC 센서 모듈 |
+| **주요 부품**      | ATmega128 개발보드, LED, Switch   |
 
 ---
 
@@ -35,11 +34,11 @@
 ### Pin Configuration
 
 ```text
-[ATmega128]                 [Target Component]
- PORTA (PA0 ~ PA7)   ----->   8-Bit LED
- PORTB Pin 4 (PB4)   ----->   PWM Motor Control (OC0)
- PE0 (RXD0) / PE1    ----->   UART Serial Communication
- ADC0 (PF0)          ----->   Analog Sensor Input
+[ATmega128]                             [Target Component]
+ PORTA (PA0 ~ PA7)               ----->   8-Bit LED
+ PE0 (RXD0) / PE1                ----->   UART Serial Communication
+ PORTD Pin 2, 3 (PIND2, PIND3)   ----->   Switch 1, 2
+ PORTE Pin 4, 5 (PINE4, PINE5)   ----->   Switch 3, 4
 ```
 
 ### 주요 회로 특징
@@ -54,17 +53,8 @@
 > 구현부(.c), 선언부(.h)만 구조에 표기함.
 
 ```text
-├── Day00_Task00/
-│   ├── main.c # 메인 제어 루프 및 시스템 초기화
-│   ├── timer. # 타이머/카운터 및 PWM 설정
-│   ├── uart.c # 시리얼 통신(UART) 드라이버
-│   └── adc.c # ADC 데이터 수신 드라이버
-├── include/
-│   ├── timer.h
-│   ├── uart.h
-│   └── adc.h
-├── docs/
-│   └── schematic.pdf # 회로도 파일
+├── Day03_Task02/
+│   └──  main.c # 메인 제어 루프 및 시스템 초기화
 └── README.md
 ```
 
@@ -72,19 +62,107 @@
 
 ## 5. 핵심 코드 및 레지스터 설정 (Key Implementation)
 
-### 타이머/카운터 및 PWM 초기화 예시 (`timer.c`)
+### LED 제어 예시 (`main.c`)
 
 ```c
-#include <avr/io.h>
+#define F_CPU 16000000
 #include <avr/interrupt.h>
-
-void Timer0_PWM_Init(void) {
-    // Fast PWM Mode, Non-inverting Mode 설정
-    TCCR0 |= (1 << WGM00) | (1 << WGM01); // Fast PWM Mode
-    TCCR0 |= (1 << COM01); // Non-inverting Mode
-    TCCR0 |= (1 << CS02) | (1 << CS01); // 분주비 256 설정
-
-    DDRB |= (1 << PB4); // OC0 핀 출력 설정
+#include <avr/io.h>
+#include <util/delay.h>
+.
+.
+.
+// 초기화는 인터럽트로 구현하였다
+ISR(INT2_vect) // ISR(INTX_vect) {}  << 인터럽트 지정
+{
+	_delay_ms(15); // 채터링 방지
+	if((PIND & (1<<PIND2))!=0)
+	{
+		EIFR = ( 1<< INTF2);
+		return;
+	}
+	
+	PORTA = 0xFF; // 다 끄기 1111 1111
+	for (int i = 0; i < 5; i++)
+	{
+		Uart_Putch(reset[i]);
+	}
+}
+.
+.
+.
+int main(void)
+{
+.
+.
+.
+	// 숫자 0 ~ 9 -> ASCII 48 ~ 57
+	// return값을 int형으로 변환 후 조건 만들기
+int isCheck = 0; // 메모리 아끼기 위한 로직
+ while (1) 
+    {
+		int recvData = Uart_getch(); // 입력 받기
+		for (int i = 48; i < 56; i++) // 0 ~ 7인 경우
+		{
+			if (recvData == i)
+			{
+				PORTA = ~(1<<(i - 48));
+				
+				Uart_Putch((char)i); // 보여줄 때는 0~7이어야 하므로 다시 char
+				for (int j = 0; j < 7; j++)
+				{
+					Uart_Putch(ledOn[j]);
+				}
+				isCheck = 1;
+				continue;
+			}
+		}
+		if (isCheck == 1) // 0 ~ 7에서 이미 확인된 경우 continue
+		{
+			isCheck = 0;
+			continue;
+		}
+		switch(recvData) // 
+		{
+			case 56:
+   // 이전 과제에서 구현한 로직을 가져옴(비트 밀기)
+			if(PORTA & (1 << 0)) { // 0000 0001 << 0 = 0000 0001
+				PORTA = PORTA >> 1; // 비트 밀기
+				PORTA |= 0x80; // 끝 비트 0 설정(1000 0000 OR 연산, 0부분은 그대로 끝에만 1로 바뀜)
+			}
+			else
+			{
+				PORTA = PORTA >> 1;
+			} // 비트 밀기
+			for (int i = 0; i < 4; i++)
+			{
+				Uart_Putch(left[i]);
+			}
+			break;
+			
+			case 57:
+			if(PORTA & (1 << 7)) { // 0000 0001 << 0 = 0000 0001
+				PORTA = PORTA << 1; // 비트 밀기
+				PORTA |= 0x01; // 끝 비트 0 설정(0000 0001 OR 연산, 0부분은 그대로 끝에만 1로 바뀜)
+			}
+			else
+			{
+				PORTA = PORTA << 1;
+			}
+			for (int i = 0; i < 5; i++)
+			{
+				Uart_Putch(right[i]);
+			}
+			break;
+			
+			default: // 0 ~ 9 외의 값은 모두 error가 뜨게 됨 (예외 처리)
+			for (int i = 0; i < 5; i++)
+			{
+				Uart_Putch(error[i]);
+			}
+			break;
+		}
+    }
 }
 ```
 
@@ -94,15 +172,20 @@ void Timer0_PWM_Init(void) {
 
 ### 동작 시나리오
 
-1. 시스템 전원 인가 시 ATmega128 주변장치(UART, Timer, ADC) 초기화함
-2. 센서 입력 값 및 인터럽트 신호 수신함
-3. PWM 제어를 통한 액추에이터 제어 및 UART 시리얼 데이터 출력함
+SW1 누르면 모든 상태 초기화 후, “RESET” 문자열 PC로 전송
+
+PC에서 0~7 숫자 입력 시 해당 번호의 LED 켜기 (예외 처리 필요, PC로 “n LED on” 문자열 전송
+
+PC에서 8 입력 시, LED 왼쪽으로 이동, PC에 “LEFT” 문자열 전송
+
+PC에서 9 입력 시, LED 오른쪽으로 이동, PC에 “RIGHT” 문자열 전송
+
 
 ### 동작 사진 / 영상
 
-|                 정면 동작 모습                 |            센서 측정 및 시리얼 출력            |
+|                 정면 동작 모습                 |            사진            |
 | :--------------------------------------------: | :--------------------------------------------: |
-| ![Hardware Setup](개인_구글드라이브_링크_첨부) | ![Serial Monitor](개인_구글드라이브_링크_첨부) |
+| [동작 영상](https://drive.google.com/file/d/1H3uD0gSduU_Jz6HAiHeQQM6kcHJRlRZG/view?usp=drive_link) | [예외 처리 시](https://drive.google.com/file/d/1lt75J9R-BDelXVo5m4SAOnNPo6hllUj2/view?usp=drive_link) |
 
 ---
 
@@ -110,10 +193,9 @@ void Timer0_PWM_Init(void) {
 
 본 과제 작성 및 구현 과정에서 활용한 AI 도구(Generative AI)의 사용 현황 및 목적은 다음과 같음.
 
-| 도구명 (Tool)        | 활용 영역              | 세부 사용 목적 및 내용                                                                                   |
-| :------------------- | :--------------------- | :------------------------------------------------------------------------------------------------------- |
-| **ChatGPT / Claude** | 코드 디버깅 & 리팩토링 | - 빌드 에러 및 문법 오류 원인 분석<br>- 레지스터 설정 주석 작성 및 가독성 개선                           |
-| **Gemini**           | 개념 정리 & 모듈 설계  | - ATmega128 Timer/Counter 및 ADC 인터럽트 동작 원리 검토<br>- 전체 프로젝트 파일/디렉토리 구조 설계 참고 |
+| 도구명 (Tool)        | 활용 영역              | 세부 사용 목적 및 내용        |
+| :--------------- | :---------------- | --- |
+| X | - | -|
 
 ### AI 활용 및 검증 원칙
 

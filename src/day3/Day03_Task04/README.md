@@ -1,8 +1,8 @@
-# ATmega128 과제 및 프로젝트 템플릿
+# Day03_Task04
 
 > **광운대학교 로봇학부**  
 > **작성자:** 주호진  
-> **제출일:** (날짜)
+> **제출일:** 2026.08.02
 
 ---
 
@@ -13,8 +13,7 @@
 ### 핵심 목표
 
 - ATmega128 레지스터 설정을 통한 주변장치 제어
-- 센서 및 외부 모듈과의 통신 (USART / SPI / I2C 등) 및 데이터 처리
-- 타이머/카운터를 활용한 PWM 출력 및 인터럽트 제어
+- USART 레지스터를 사용하지 않고 USART 통신
 
 ---
 
@@ -26,7 +25,7 @@
 | **IDE / Compiler** | Microchip Studio 7.0 / Microchip AVR GCC        |
 | **Flasher Tool**   | USBISP / STK500                                 |
 | **언어**           | C Language                                      |
-| **주요 부품**      | ATmega128 개발보드, DC/STEP 모터, ADC 센서 모듈 |
+| **주요 부품**      | ATmega128 개발보드   |
 
 ---
 
@@ -35,11 +34,8 @@
 ### Pin Configuration
 
 ```text
-[ATmega128]                 [Target Component]
- PORTA (PA0 ~ PA7)   ----->   8-Bit LED
- PORTB Pin 4 (PB4)   ----->   PWM Motor Control (OC0)
- PE0 (RXD0) / PE1    ----->   UART Serial Communication
- ADC0 (PF0)          ----->   Analog Sensor Input
+[ATmega128]                              [Target Component]
+ PD2 (RXD0) / PD3                ----->   UART Serial Communication
 ```
 
 ### 주요 회로 특징
@@ -54,17 +50,8 @@
 > 구현부(.c), 선언부(.h)만 구조에 표기함.
 
 ```text
-├── Day00_Task00/
-│   ├── main.c # 메인 제어 루프 및 시스템 초기화
-│   ├── timer. # 타이머/카운터 및 PWM 설정
-│   ├── uart.c # 시리얼 통신(UART) 드라이버
-│   └── adc.c # ADC 데이터 수신 드라이버
-├── include/
-│   ├── timer.h
-│   ├── uart.h
-│   └── adc.h
-├── docs/
-│   └── schematic.pdf # 회로도 파일
+├── Day03_Task04/
+│   └── main.c # 메인 제어 루프 및 시스템 초기화
 └── README.md
 ```
 
@@ -72,20 +59,76 @@
 
 ## 5. 핵심 코드 및 레지스터 설정 (Key Implementation)
 
-### 타이머/카운터 및 PWM 초기화 예시 (`timer.c`)
+### 비트 뱅잉 예시 (`main.c`)
 
 ```c
+#define F_CPU 16000000UL
 #include <avr/io.h>
-#include <avr/interrupt.h>
+#include <util/delay.h>
 
-void Timer0_PWM_Init(void) {
-    // Fast PWM Mode, Non-inverting Mode 설정
-    TCCR0 |= (1 << WGM00) | (1 << WGM01); // Fast PWM Mode
-    TCCR0 |= (1 << COM01); // Non-inverting Mode
-    TCCR0 |= (1 << CS02) | (1 << CS01); // 분주비 256 설정
+#define BIT_DELAY 104 // 1 / 9600 = 104.xx(us) 오차범위 어느정도 허용
+#define TX_PIN PD3 // PD3 핀 사용
 
-    DDRB |= (1 << PB4); // OC0 핀 출력 설정
+/*
+비트 뱅잉
+하드웨어 없이 소프트웨어를 사용하여 구현
+Start Bit: 전송 데이터 패킷의 시작 부분을 알린다. 이 신호를 통해 RX에서 데이터 수신을 시작한다
+Data Bits: Start Bit와 Stop Bit 사이에 존재한다. 최대 9bit까지 데이터 통신이 가능하다.
+Parity Bit: 선택적으로 사용 가능한 Bit로, 대표적으로 Odd Parity(홀수 패리티)와 Even Parity(짝수 패리티)를 사용한다. - Odd Parity: 데이터 비트의 총합이 홀수일 경우 오류가 없는 것으로 판단한다. - Even Parity: 데이터 비트의 총합이 짝수일 경우 오류가 없는 것으로 판단한다.
+Stop Bit: 전송 데이터 패킷의 끝을 정의한다. 1bit 또는 2bit를 사용하며, 1bit 사용시에는 논리값1, 2bit 사용시에는 논리값 0, 1을 순서대로 사용한다.
+
+데이터 8비트 사용 시 start bit + 8 bit + stop bit = 10bit / 패리티 비트 사용 X
+*/
+void transmit(unsigned char data);
+
+int main(void)
+{
+	// 출력
+	DDRD |= (1 << TX_PIN);
+	
+	// 기본 high, low 인식 시 start로 인식
+	PORTD |= (1 << TX_PIN);
+	_delay_ms(10);
+	
+	char helloWolrd[] = "HelloWorld!";
+
+	while (1)
+	{
+		for (int i = 0; i < 11; i++)
+		{
+			transmit(helloWolrd[i]);
+		}
+		
+		_delay_ms(1000);
+	}
 }
+
+void transmit(unsigned char data) {
+	// 전송을 시작할 때는 low비트를 1비트 시간만큼 출력 start
+	PORTD &= ~(1 << TX_PIN); // low
+	_delay_us(BIT_DELAY); // 비트마다 딜레이 필요
+
+	// 데이터 비트 (8bit) lsb부터 보냄(최소 단위 비트)
+	// 해당 비트만 1인 비트와 &연산을 하면 해당 비트 값만 제외하고 0
+	// 해당 비트는 0이면 0, 1이면 1
+	for (int i = 0; i < 8; i++)
+	{
+		if (data & (1 << i))
+		{
+			PORTD |= (1 << TX_PIN);  
+		}
+		else
+		{
+			PORTD &= ~(1 << TX_PIN); 
+		}
+		_delay_us(BIT_DELAY);
+	}
+
+	// 전송을 끝마칠 때는 high비트를 1비트 시간만큼 출력 end
+	PORTD |= (1 << TX_PIN); // high
+	_delay_us(BIT_DELAY);
+}
+
 ```
 
 ---
@@ -94,15 +137,21 @@ void Timer0_PWM_Init(void) {
 
 ### 동작 시나리오
 
-1. 시스템 전원 인가 시 ATmega128 주변장치(UART, Timer, ADC) 초기화함
-2. 센서 입력 값 및 인터럽트 신호 수신함
-3. PWM 제어를 통한 액추에이터 제어 및 UART 시리얼 데이터 출력함
+UART 관련 레지스터 사용하지 않고 PORTD와 DDRD만을 사용하여 uart 데이터 전송 가능하게 하기
+
+“HelloWorld!” 1초마다 보내기
+
+
+
+
+
+
 
 ### 동작 사진 / 영상
 
-|                 정면 동작 모습                 |            센서 측정 및 시리얼 출력            |
-| :--------------------------------------------: | :--------------------------------------------: |
-| ![Hardware Setup](개인_구글드라이브_링크_첨부) | ![Serial Monitor](개인_구글드라이브_링크_첨부) |
+|                 정면 동작 모습                 |  
+| :--------------------------------------------: | 
+| [동작 영상](https://drive.google.com/file/d/17DFO2kJkxy1npNCU43cUEoL55sgbxAoP/view?usp=drive_link) |
 
 ---
 
@@ -110,10 +159,9 @@ void Timer0_PWM_Init(void) {
 
 본 과제 작성 및 구현 과정에서 활용한 AI 도구(Generative AI)의 사용 현황 및 목적은 다음과 같음.
 
-| 도구명 (Tool)        | 활용 영역              | 세부 사용 목적 및 내용                                                                                   |
-| :------------------- | :--------------------- | :------------------------------------------------------------------------------------------------------- |
-| **ChatGPT / Claude** | 코드 디버깅 & 리팩토링 | - 빌드 에러 및 문법 오류 원인 분석<br>- 레지스터 설정 주석 작성 및 가독성 개선                           |
-| **Gemini**           | 개념 정리 & 모듈 설계  | - ATmega128 Timer/Counter 및 ADC 인터럽트 동작 원리 검토<br>- 전체 프로젝트 파일/디렉토리 구조 설계 참고 |
+| 도구명 (Tool)        |     활용 영역              | 세부 사용 목적 및 내용        |
+| :--------------- | :--------------------------- | --------------------- |
+| Gemini |  개념 정리, 디버깅  | 비트 뱅잉에 대해 쉽게 설명, UART에서의 비트 뱅잉, USART1번 칸에 스위치가 연결되어 있는데 그냥 사용해도 문제가 없는지?  |
 
 ### AI 활용 및 검증 원칙
 
