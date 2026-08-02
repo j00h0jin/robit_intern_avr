@@ -37,7 +37,7 @@ ISR(INT2_vect) // ISR(INTX_vect) {}  << 인터럽트 지정
 		return;
 	}
 	
-	current += 1;
+	current += 1; // 버튼을 누르면 다음 시간으로 넘어감
 }
 
 ISR(INT3_vect) // ISR(INTX_vect) {}  << 인터럽트 지정
@@ -50,7 +50,7 @@ ISR(INT3_vect) // ISR(INTX_vect) {}  << 인터럽트 지정
 		return;
 	}
 	if(current > 6)
-		isFlow = 1;
+		isFlow = 1; // isFlow = 1이면 타임 인터럽트
 }
 
 ISR(TIMER0_OVF_vect)
@@ -108,7 +108,7 @@ int main(void)
 	DDRD = 0x00; // D2 -> SW 1번, D3 -> 2번
 	
 	EICRA |= (1 << ISC21) | (1 << ISC31);
-	EIMSK |= (1 << INT2) | (1 << INT3);
+	EIMSK |= (1 << INT2) | (1 << INT3); // 인터럽트 활성화
 	
 	TCNT0 = 131;
 	TCCR0 = 0x07;
@@ -129,7 +129,7 @@ int main(void)
     while (1) 
     {
 		potentiometerValue = Read_ADC();
-		switch(current) {
+		switch(current) { // current 값에 따라 시간 값 수정(가변저항 값을 범위에 맞게 저장)
 			case 0:
 			year = 2000 + ((unsigned long)potentiometerValue * 100 / 1024);
 			lcdNumber(0,0,year);
@@ -183,6 +183,9 @@ unsigned int Read_ADC()
 	return ADC;
 }
 
+// 윤년, 월에 따른 day를 return
+// 윤년인 경우 2월 판별, 그 외에는 30일과 31일을 나눔
+// 31 28(29) 31 30 31 30 31 31 30 31 30 31
 unsigned int getDay(unsigned int year, unsigned int month) {
 	if(month == 2) {
 		// 윤년 판별식
