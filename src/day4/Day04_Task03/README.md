@@ -1,4 +1,4 @@
-# ATmega128 과제 및 프로젝트 템플릿
+# Day04_Task03
 
 > **광운대학교 로봇학부**  
 > **작성자:** 주호진  
@@ -13,7 +13,7 @@
 ### 핵심 목표
 
 - ATmega128 레지스터 설정을 통한 주변장치 제어
-- timer, counter, switch를 활용한 날짜 구현
+- PSD의 ADC값을 cm로 변환
 
 ---
 
@@ -25,7 +25,7 @@
 | **IDE / Compiler** | Microchip Studio 7.0 / Microchip AVR GCC        |
 | **Flasher Tool**   | USBISP / STK500                                 |
 | **언어**           | C Language                                      |
-| **주요 부품**      | ATmega128 개발보드, LCD, Switch, Potentiometer |
+| **주요 부품**      | ATmega128 개발보드, UART, PSD |
 
 ---
 
@@ -35,9 +35,8 @@
 
 ```text
 [ATmega128]                             [Target Component]
- PORTD Pin 0, 1 (PIND0, PIND1)   ----->   LCD(I2C)
- PORTD Pin 2, 3 (PIND2, PIND3)   ----->   Switch 1, 2
- PORTF PF0                       ----->   Potentiometer
+ PE0 (RXD0) / PE1                ----->   UART Serial Communication
+ PORTF PF1                       ----->   PSD
 ```
 
 ### 주요 회로 특징
@@ -52,11 +51,8 @@
 > 구현부(.c), 선언부(.h)만 구조에 표기함.
 
 ```text
-├── Day04_Task02/
+├── Day04_Task03/
 │   ├──  main.c # 메인 제어 루프 및 시스템 초기화
-│   └──  LCD_Text.c # LCD 제어 함수 파일
-├── include/
-│   └── LCD_Text.h # LCD 제어 헤더 파일
 └── README.md
 ```
 
@@ -66,120 +62,78 @@
 
 ### 시간 작동 예시 (`main.c`)
 
+PSD에서 받아오는 ADC값을 cm로 변환하기 위한 정보는 [여기](https://blog.naver.com/ann_arbor/221627224574)를 참고하였다.
+
+샤프 2y0a02 센서의 측정범위는 20~150cm이고, 20cm 이전에는 adc값이 일정하지 않으므로 20cm 이전에 발생하는 불규칙적인 값들은 continue처리해주었다.
+
 ```c
 #define F_CPU 16000000UL
+
+
+#define A 0.008271
+#define B 939.6
+#define C -3.398
+#define D 17.339
+
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
-#include "include/LCD_Text.h"
-.
-.
-.
-int isFlow = 0;
-.
-.
-.
-// 각 시간의 단위를 넘어가면 다음 단위 +1 자신은 0으로 초기화
-ISR(TIMER0_OVF_vect)
-{
-	TCNT0 = 131;
-
-	if(isFlow == 0)
-	return;
-
-	count8ms++;
-	mSec += 8;
-
-	if(count8ms >= 125|| mSec >=1000)
-	{
-		count8ms = 0;
-		mSec = 0;
-		sec++;
-
-		if(sec >= 60)
-		{
-			sec = 0;
-			min++;
-
-			if(min >= 60)
-			{
-				min = 0;
-				hour++;
-
-				if(hour >= 24)
-				{
-					hour = 0;
-					day++;
-
-					if(day > getDay(year, month))
-					{
-						day = 1;
-						month++;
-
-						if(month > 12)
-						{
-							month = 1;
-							year++;
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
+#include <stdlib.h>
+#include <stdio.h>
 
 int main(void)
 {
-.
-.
-.
-while (1) 
-    {
-		potentiometerValue = Read_ADC();
-		switch(current) {
-.
-.
-.
-   // 출력
-			default:
-			lcdNumber(0,0,year);
-			lcdNumber(0,4,month);
-			lcdNumber(0,6,day);
-			lcdNumber(1,0,hour);
-			lcdString(1, 2, ":");
-			lcdNumber(1,3,min);
-			lcdString(1, 5, ":");
-			lcdNumber(1,6,sec);
-			lcdString(1, 8, ".");
-			lcdNumber(1,9,mSec/10);
-			break;
-   }
-}
-
-```
-
-### day 추출 예시 (`main.c`)
-
-```c
-// 윤년, 월에 따른 day를 return
-// 윤년인 경우 2월 판별, 그 외에는 30일과 31일을 나눔
-// 31 28(29) 31 30 31 30 31 31 30 31 30 31
-unsigned int getDay(unsigned int year, unsigned int month) {
-	if(month == 2) { // 2월의 경우
-		// 윤년 판별식
-	if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
-		return 29;
-	else
-		return 28;
-	}
-	if (month == 4 ||month == 6 || month == 9 || month == 11)
-		return 30;
+	UBRR0L = 16; // 57600
+	UBRR0H = 0;
+	UCSR0A = 0x20; // 송신 상태비트 초기화
+	UCSR0B = 0x18;
+	UCSR0C = 0x06; // data 8bit
 	
-	return 31;
+	DDRE = 0x02; // E0 입력, E1 출력
+		
+	int psdADC = 0, i = 0;
+	float voltage = 0;
+	float distance = 0;
+	
+	char psdChar[20];
+	
+	ADMUX = 0x41; // 0100 0001 ADC1번
+	ADCSRA = 0x87; // 1000 0111 ADC 활성화, 클럭 분주비 128
+	
+    while (1) 
+    {
+		i = 0;
+		psdADC = Read_ADC();
+		// 20cm를 기준으로 전압(ADC값)이 올랐다 떨어지는데
+		// 유의미한 데이터를 얻기 위해서는 20cm 이후의 공식이 적용되는 부분만 걸러줘야 함
+		// 따라서 20cm의 전압 고점인 2.7V에서(넉넉잡아 2.6V로 계산하였음)
+		// ADC를 역산해주면 1023x2.6/5 = 531.96이 나옴
+		// 531.96을 넘어가는 값은 20cm 안쪽으로 판단하고 값을 출력하지 않고 continue시킴
+		// 2.6으로 계산했기 때문에 20cm가 조금 넘는 구간부터 측정됨
+		if(psdADC > 532) 
+			continue;
+		voltage = (float)psdADC * 5 / 1023;
+		// https://blog.naver.com/ann_arbor/221627224574 해당 공식 참고
+		distance = (A +B*voltage) / (1 + C*voltage + D*voltage*voltage);
+		dtostrf(distance, 5, 1, psdChar);
+		// sprintf(psdChar, "%d", psdADC);
+		
+		while(psdChar[i] != '\0')
+		{
+			Uart_Putch(psdChar[i]);
+			i++;
+		}
+		Uart_Putch('c');
+		Uart_Putch('m');
+		Uart_Putch(' ');
+		psdChar[0] = '\0';
+		_delay_ms(500);
+    }
 }
+
 ```
+
 
 ---
 
@@ -187,22 +141,20 @@ unsigned int getDay(unsigned int year, unsigned int month) {
 
 ### 동작 시나리오
 
- 달력, 시계 만들기
- 가변저항 값과 SW1을 이용해 날짜, 시간 세팅
-   (가변저항 값에 따라 연도 세팅 -> 스위치로 확정, 월 세팅 -> 스위치로 확정…)
+PORTF(ADC) 이용해서 PSD 센서 값 읽기
 
- LCD에 연-월-일, 시-분-초-밀리초 형태로 출력
-     (ex : 190722 10:50:48.34)
+ADC 변환 값을 센서 특성에 맞는 거리 (cm) 단위로 환산
 
- SW2 누르면 시간 흐르기 시작
+계산된 거리 데이터를 UART로 PC 시리널 터미널에서 출력
 
-날짜나 시간 등 예외처리 필수
+측정 주기 설정 및 비정상 센서 데이터 예외처리 필수
 
 ### 동작 사진 / 영상
 
 |                 정면 동작 모습                 |
 | :--------------------------------------------: |
-| [동작 영상](https://drive.google.com/file/d/19gLojNIkGKV4M6Xzzet9RSAV6HJX8s64/view?usp=drive_link) |
+| [동작 영상](https://drive.google.com/file/d/1OrT7VlcoCsus9QoZrx43QftGYJ9iamZu/view?usp=drive_link) |
+| [비정상 센서 데이터 예외처리](https://drive.google.com/file/d/1nGGR3H2DJUeGItnNomLxYzGYAkYtJKgs/view?usp=drive_link) |
 
 ---
 
@@ -212,7 +164,7 @@ unsigned int getDay(unsigned int year, unsigned int month) {
 
 | 도구명 (Tool)        | 활용 영역              | 세부 사용 목적 및 내용 |
 | :------------------- | :--------------------- | :-------------------- |
-| **Gemini**           | 개념 정리, 디버깅 | ppt timer 예제 동작 원리 설명, 시간이 흐른 뒤 출력이 안되는 이유 등 |
+| **Gemini**           | 디버깅 | 이상한 값이 뜨는 이유(디버깅), PSD값이 출렁이는 원인 |
 
 ### AI 활용 및 검증 원칙
 
