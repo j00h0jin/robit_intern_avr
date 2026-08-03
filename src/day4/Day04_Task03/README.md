@@ -60,7 +60,7 @@
 
 ## 5. 핵심 코드 및 레지스터 설정 (Key Implementation)
 
-### 시간 작동 예시 (`main.c`)
+### ADC값 cm로 표시 예시 (`main.c`)
 
 PSD에서 받아오는 ADC값을 cm로 변환하기 위한 정보는 [여기](https://blog.naver.com/ann_arbor/221627224574)를 참고하였다.
 
