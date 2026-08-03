@@ -1,8 +1,8 @@
-# ATmega128 과제 및 프로젝트 템플릿
+# Day04_Task02
 
 > **광운대학교 로봇학부**  
 > **작성자:** 주호진  
-> **제출일:** (날짜)
+> **제출일:** 2026.08.03
 
 ---
 
@@ -13,8 +13,7 @@
 ### 핵심 목표
 
 - ATmega128 레지스터 설정을 통한 주변장치 제어
-- 센서 및 외부 모듈과의 통신 (USART / SPI / I2C 등) 및 데이터 처리
-- 타이머/카운터를 활용한 PWM 출력 및 인터럽트 제어
+- timer, counter, switch를 활용한 날짜 구현
 
 ---
 
@@ -26,7 +25,7 @@
 | **IDE / Compiler** | Microchip Studio 7.0 / Microchip AVR GCC        |
 | **Flasher Tool**   | USBISP / STK500                                 |
 | **언어**           | C Language                                      |
-| **주요 부품**      | ATmega128 개발보드, DC/STEP 모터, ADC 센서 모듈 |
+| **주요 부품**      | ATmega128 개발보드, LCD, Switch, Potentiometer |
 
 ---
 
@@ -35,11 +34,10 @@
 ### Pin Configuration
 
 ```text
-[ATmega128]                 [Target Component]
- PORTA (PA0 ~ PA7)   ----->   8-Bit LED
- PORTB Pin 4 (PB4)   ----->   PWM Motor Control (OC0)
- PE0 (RXD0) / PE1    ----->   UART Serial Communication
- ADC0 (PF0)          ----->   Analog Sensor Input
+[ATmega128]                             [Target Component]
+ PORTD Pin 0, 1 (PIND0, PIND1)   ----->   LCD(I2C)
+ PORTD Pin 2, 3 (PIND2, PIND3)   ----->   Switch 1, 2
+ PORTF PF0                       ----->   Potentiometer
 ```
 
 ### 주요 회로 특징
@@ -54,17 +52,11 @@
 > 구현부(.c), 선언부(.h)만 구조에 표기함.
 
 ```text
-├── Day00_Task00/
-│   ├── main.c # 메인 제어 루프 및 시스템 초기화
-│   ├── timer. # 타이머/카운터 및 PWM 설정
-│   ├── uart.c # 시리얼 통신(UART) 드라이버
-│   └── adc.c # ADC 데이터 수신 드라이버
+├── Day04_Task02/
+│   ├──  main.c # 메인 제어 루프 및 시스템 초기화
+│   └──  LCD_Text.c # LCD 제어 함수 파일
 ├── include/
-│   ├── timer.h
-│   ├── uart.h
-│   └── adc.h
-├── docs/
-│   └── schematic.pdf # 회로도 파일
+│   └── LCD_Text.h # LCD 제어 헤더 파일
 └── README.md
 ```
 
@@ -72,19 +64,120 @@
 
 ## 5. 핵심 코드 및 레지스터 설정 (Key Implementation)
 
-### 타이머/카운터 및 PWM 초기화 예시 (`timer.c`)
+### 시간 작동 예시 (`main.c`)
 
 ```c
+#define F_CPU 16000000UL
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
+#include "include/LCD_Text.h"
+.
+.
+.
+int isFlow = 0;
+.
+.
+.
+// 각 시간의 단위를 넘어가면 다음 단위 +1 자신은 0으로 초기화
+ISR(TIMER0_OVF_vect)
+{
+	TCNT0 = 131;
 
-void Timer0_PWM_Init(void) {
-    // Fast PWM Mode, Non-inverting Mode 설정
-    TCCR0 |= (1 << WGM00) | (1 << WGM01); // Fast PWM Mode
-    TCCR0 |= (1 << COM01); // Non-inverting Mode
-    TCCR0 |= (1 << CS02) | (1 << CS01); // 분주비 256 설정
+	if(isFlow == 0)
+	return;
 
-    DDRB |= (1 << PB4); // OC0 핀 출력 설정
+	count8ms++;
+	mSec += 8;
+
+	if(count8ms >= 125|| mSec >=1000)
+	{
+		count8ms = 0;
+		mSec = 0;
+		sec++;
+
+		if(sec >= 60)
+		{
+			sec = 0;
+			min++;
+
+			if(min >= 60)
+			{
+				min = 0;
+				hour++;
+
+				if(hour >= 24)
+				{
+					hour = 0;
+					day++;
+
+					if(day > getDay(year, month))
+					{
+						day = 1;
+						month++;
+
+						if(month > 12)
+						{
+							month = 1;
+							year++;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+
+int main(void)
+{
+.
+.
+.
+while (1) 
+    {
+		potentiometerValue = Read_ADC();
+		switch(current) {
+.
+.
+.
+   // 출력
+			default:
+			lcdNumber(0,0,year);
+			lcdNumber(0,4,month);
+			lcdNumber(0,6,day);
+			lcdNumber(1,0,hour);
+			lcdString(1, 2, ":");
+			lcdNumber(1,3,min);
+			lcdString(1, 5, ":");
+			lcdNumber(1,6,sec);
+			lcdString(1, 8, ".");
+			lcdNumber(1,9,mSec/10);
+			break;
+   }
+}
+
+```
+
+### day 추출 예시 (`main.c`)
+
+```c
+// 윤년, 월에 따른 day를 return
+// 윤년인 경우 2월 판별, 그 외에는 30일과 31일을 나눔
+// 31 28(29) 31 30 31 30 31 31 30 31 30 31
+unsigned int getDay(unsigned int year, unsigned int month) {
+	if(month == 2) { // 2월의 경우
+		// 윤년 판별식
+	if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
+		return 29;
+	else
+		return 28;
+	}
+	if (month == 4 ||month == 6 || month == 9 || month == 11)
+		return 30;
+	
+	return 31;
 }
 ```
 
@@ -94,15 +187,22 @@ void Timer0_PWM_Init(void) {
 
 ### 동작 시나리오
 
-1. 시스템 전원 인가 시 ATmega128 주변장치(UART, Timer, ADC) 초기화함
-2. 센서 입력 값 및 인터럽트 신호 수신함
-3. PWM 제어를 통한 액추에이터 제어 및 UART 시리얼 데이터 출력함
+ 달력, 시계 만들기
+ 가변저항 값과 SW1을 이용해 날짜, 시간 세팅
+   (가변저항 값에 따라 연도 세팅 -> 스위치로 확정, 월 세팅 -> 스위치로 확정…)
+
+ LCD에 연-월-일, 시-분-초-밀리초 형태로 출력
+     (ex : 190722 10:50:48.34)
+
+ SW2 누르면 시간 흐르기 시작
+
+날짜나 시간 등 예외처리 필수
 
 ### 동작 사진 / 영상
 
-|                 정면 동작 모습                 |            센서 측정 및 시리얼 출력            |
-| :--------------------------------------------: | :--------------------------------------------: |
-| ![Hardware Setup](개인_구글드라이브_링크_첨부) | ![Serial Monitor](개인_구글드라이브_링크_첨부) |
+|                 정면 동작 모습                 |
+| :--------------------------------------------: |
+| [동작 영상](https://drive.google.com/file/d/19gLojNIkGKV4M6Xzzet9RSAV6HJX8s64/view?usp=drive_link) |
 
 ---
 
@@ -110,10 +210,9 @@ void Timer0_PWM_Init(void) {
 
 본 과제 작성 및 구현 과정에서 활용한 AI 도구(Generative AI)의 사용 현황 및 목적은 다음과 같음.
 
-| 도구명 (Tool)        | 활용 영역              | 세부 사용 목적 및 내용                                                                                   |
-| :------------------- | :--------------------- | :------------------------------------------------------------------------------------------------------- |
-| **ChatGPT / Claude** | 코드 디버깅 & 리팩토링 | - 빌드 에러 및 문법 오류 원인 분석<br>- 레지스터 설정 주석 작성 및 가독성 개선                           |
-| **Gemini**           | 개념 정리 & 모듈 설계  | - ATmega128 Timer/Counter 및 ADC 인터럽트 동작 원리 검토<br>- 전체 프로젝트 파일/디렉토리 구조 설계 참고 |
+| 도구명 (Tool)        | 활용 영역              | 세부 사용 목적 및 내용 |
+| :------------------- | :--------------------- | :-------------------- |
+| **Gemini**           | 개념 정리, 디버깅 | ppt timer 예제 동작 원리 설명, 시간이 흐른 뒤 출력이 안되는 이유 등 |
 
 ### AI 활용 및 검증 원칙
 
