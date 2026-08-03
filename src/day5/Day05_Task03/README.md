@@ -2,7 +2,7 @@
 
 > **광운대학교 로봇학부**  
 > **작성자:** 주호진  
-> **제출일:** 2026.08.00
+> **제출일:** 2026.08.04
 
 ---
 
@@ -20,6 +20,8 @@
 
 타이머 카운터 레지스터(TCNT)와 출력 비교 레지스터(OCR)가 일치할 때  COM 비트 설정에 따라 OC 핀의 동작을 결정한다.
 OC핀을 출력으로 사용할 때에는 DDRx를 출력으로 설정해두어야 한다.
+
+TCNT와 OCR은 하단에 후술되어있다.
 
 일반 모드 or CTC 모드일 때
 
@@ -63,7 +65,7 @@ INCn = 0 노이즈 제거 회로가 작동되지 않음
 
 입력 캡쳐: 외부에서 들어오는 신호의 타이밍을 기록하는 기능
 
-### ICRnH(High), ICRnL(Low)
+### ICRnH(High), ICRnL(Low) - Input Capture Register
 
 <img width="492" height="164" alt="image" src="https://github.com/user-attachments/assets/057985ba-8220-450f-812c-1f449424e35d" />
 
@@ -71,6 +73,9 @@ INCn = 0 노이즈 제거 회로가 작동되지 않음
 코드로 시간을 확인하면 코드 실행 시간이나 인터럽트 때문에 오차가 발생하는데 입력 캡쳐를 사용하면 입력 캡쳐 레지스터(ICRn)에 즉시 저장함
 
 16비트 타이머기 때문에 8비트씩 나누어서 상위(high)비트와 하위(Low)비트로 나누어서 저장한다.
+
+Fast PWM 모드에서 타이머의 TOP 값으로 설정될 수 있다.
+
 
 ### BIT 6 - ICESn (Input Capture Edge Select)
 
@@ -110,11 +115,82 @@ TCCRnA에서 설명(위에)
 
 ---
 
+### TCNTn(L, H) - Timer Counter Register
 
-TCNT1H, TCNT1L
+<img width="607" height="200" alt="image" src="https://github.com/user-attachments/assets/31906937-6471-40c3-8af6-c8288d2234b3" />
 
-OCR1AH, OCR1AL, OCR1BH, OCR1BL, OCR1CH, OCR1CL
+타이머 카운터의 현재 카운트 값이 실시간으로 저장되는 레지스터이고 위에서 L, H가 나뉘었듯 16비트를 상위비트와 하위비트로 나누어서 저장한다.
 
-SFIOR
+---
 
-TIMSK, ETIMSK, TIFR, ETIFR
+### OCRn(A, B, C)(L, H) - Output Compare Register
+
+<img width="589" height="294" alt="image" src="https://github.com/user-attachments/assets/76b8836f-3860-433b-88d9-0c602efafaec" />
+
+내가 원하는 목표 카운트 값을 설정해두는 레지스터이다. MAX값보다 낮은 값에서 Compare Match를 원하는 경우 해당 레지스터에 TOP을 설정해둘 수 있다. 듀티비 제어용도로는 OCR만이 가능하기 때문에 PWM 모드에서는 ICR 레지스터를 TOP으로 사용하고 OCR 레지스터는 듀티비 조절용으로 사용하는 것이 일반적이다. (ICRn에는 전압을 켜고 끌 출력 핀과 비교(Compare) 하드웨어가 없기 때문에 듀티비 제어가 불가능하다)
+
+*듀티비: 한 주기 동안에 전기가 들어와 있는 시간의 비율을 듀티비라고 한다.
+
+> ex) ICR을 1000으로 설정(주기는 1000이 됨), OCR을 600으로 설정하면 듀티비는 60%(600/1000)이 된다.  
+
+> Accessing 16-bit Registers (16비트 레지스터 접근 원리)    
+> Atmega에서는 16비트의 값을 상위와 하위 비트로 나누어서 읽는데 하위 비트를 읽는 중 상위 비트가 변경되는 경우 엉뚱한 값을 참조하게 된다. 그렇기 때문에 Atmega에서 내부적으로 하위 비트를 읽는 동안에 상위 비트를 TEMP라는 레지스터에 저장해놓게 된다.
+
+---
+
+### SFIOR - Special Function IO Register
+
+<img width="595" height="83" alt="image" src="https://github.com/user-attachments/assets/2517df30-9982-403c-a476-6cf33bfd5dea" />
+
+AVR의 특수 기능들을 모아놓은 레지스터이다.
+
+### ​​BIT 7, 1, 0 - 타이머 동기화 및 분주기(Prescaler) 제어
+
+> BIT 7 - TSM(Timer/Counter Synchronization Mode)
+> 여러 개의 타이머를 정확히 동시에 카운팅을 시작시킬 때 사용   
+> BIT 1 - PSR2(Prescaler Reset Timer/Counter2)
+> 1을 쓰면 Timer 2의 분주기 회로를 리셋한다.   
+> BIT 0 - PSR310 (Prescaler Reset Timer/Counter 3, 1, 0)
+> 1을 쓰면 Timer 0, 1, 3이 공유하는 분주기 회로를 리셋한다.
+
+### ​​BIT 3 - ACME(Analog Comparator Multiplexer Enable)
+
+아날로그 비교기의 - 단자로 ADC핀을 입력할 수 있게 확장한다.
+
+### ​​BIT 2 - PUD(Pull-up Disable)
+
+비트에 1 입력 시 MCU의 모든 GPIO 핀에 내장된 내부 풀업 저항을 일괄적으로 끈다.
+
+---
+
+### TIMSK, ETIMSK - (Extended)Interrupt Mask Register
+
+<img width="582" height="81" alt="image" src="https://github.com/user-attachments/assets/65027ec8-24e7-4ad4-a4c3-6256fdeec6fb" />
+
+<img width="584" height="83" alt="image" src="https://github.com/user-attachments/assets/1280287b-626b-43a9-8b31-0e5e16ba834e" />
+
+각 비트에 해당하는 인터럽트를 허용할지 말지 결정하는 레지스터이다. (1이면 허용)
+
+TOIE(Timer Overflow Interrupt Enable) - 타이머 오버플로우 인터럽트
+
+OCIE(Output Compare Match Interrupt Enable) - 출력 비교 일치 인터럽트(카운터(TCNT) 값과 레지스터(OCR) 값이 일치하는 순간)
+
+TICIE(Timer Input Capture Interrupt Enable) - 입력 캡쳐 인터럽트 허용 비트
+
+---
+
+### TIFR, ETIFR - (Extended)Interrupt Flag Register
+
+<img width="581" height="82" alt="image" src="https://github.com/user-attachments/assets/42694a98-79c7-4163-a9cb-d88d493b4390" />
+
+<img width="586" height="86" alt="image" src="https://github.com/user-attachments/assets/673bd93a-b6c8-4069-bf7d-54607bf1cc30" />
+
+인터럽트 발생 조건이 충족되었을 때 켜지는(Flag) 레지스터이다.
+
+TOV(Timer Overflow Flag) - 타이머 오버플로우가 발생하면 1
+
+OCF(Output Compare Flag) - OCR값이 일치하여 이벤트가 일어나면 1
+
+ICF(Input Capture Flag) - 입력 캡쳐 핀에 엣지가 감지되어 ICR에 값이 복사되면 1
+
+플래그를 감지한 뒤 직접 끄려면 (W1C: Write 1 Clear) 1을 써서 클리어해야 한다. (0을 써서 지우는 경우 clear 찰나에 다른 flag가 켜지는 순간 해당 flag까지 지워버릴 수 있기 때문이다.)
