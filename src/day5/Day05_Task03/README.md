@@ -8,7 +8,7 @@
 
 # TIMER 1/3, PWM Register 설정에 대한 설명
 
-## timer 1/3 register(16bit Timer/Counter) (ATmega128 Datashhet pp.133-143)
+## timer 1/3 register(16bit Timer/Counter) (ATmega128 Datasheet pp.133-143)
 
 ### TCCRnA, TCCRnB, TCCRnC (n = 1, 3) (Timer Counter Control Register A B C)
 
