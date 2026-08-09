@@ -12,6 +12,7 @@
 ### 핵심 목표
 * ATmega128 레지스터 설정을 통한 주변장치 제어
 * USART를 통한 IR 센서값 정규화
+* LED, LCD를 사용하여 IR 센서 상태 출력
 
 ---
 
@@ -23,7 +24,7 @@
 | **IDE / Compiler** | Microchip Studio 7.0 / Microchip AVR GCC |
 | **Flasher Tool** | USBISP / STK500 |
 | **언어** | C Language |
-| **주요 부품** | ATmega128 개발보드, IR센서, LCD |
+| **주요 부품** | ATmega128 개발보드, IR센서, LCD, LED |
 
 ---
 
@@ -33,9 +34,10 @@
 
 ```text
 [ATmega128]                 [Target Component]
+ PORTA (PA0 ~ PA7)               ----->   8-Bit LED
+ PORTD (PD0 - PD1)               ----->   LCD(I2C)
  PORTE (PE0 - PE1)               ----->   UART Serial Communication
  PORTF (PF2 - PF7)               ----->   IR Sensor
- PORTD (PD0 - PD1)               ----->   LCD(I2C)
 ```
 
 ### 주요 회로 특징
@@ -59,9 +61,118 @@
 
 ## 5. 핵심 코드 및 레지스터 설정 (Key Implementation)
 
-### 타이머/카운터 및 PWM 초기화 예시 (`main.c`)
+### IR ADC값 읽어오기 및 정규화 과정 예시 (`main.c`)
 ```c
-temp
+#define F_CPU 16000000UL
+
+#include "include/LCD_Text.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <avr/interrupt.h>
+#define arrSize 4
+#define indexIR 6
+
+unsigned int Read_ADC(int i);
+
+volatile unsigned int ms_count = 0;
+volatile unsigned char print_flag = 0;
+ISR(TIMER0_OVF_vect) // timer0 interrupt
+{
+	// 클럭 / 분주비 = 250KHz (16MHz / 64)
+	// 1주기 = 4us ( 1 / 250K )
+	// 4us * 250 = 1ms
+	TCNT0 = 256 - 250; // 250번 count ((256 - 250) ~ 256)
+	ms_count++;
+	
+	if (ms_count >= 1000) // 주기
+	{
+		ms_count = 0;
+		print_flag = 1;
+	}
+}
+.
+.
+.
+int main(void)
+{
+.
+.
+.
+while (1) 
+{
+for (int i = 0; i < indexIR; i++)
+		{
+			sum = 0;
+			for(int j = arrSize - 1; j > 0; j--)
+			{
+				// 한 칸씩 밀기 a, b, c => a, a, b
+				moveAvgArr[i][j] = moveAvgArr[i][j-1];
+			}
+			// New_value, a, b
+			moveAvgArr[i][0] = Read_ADC(i);
+			
+			// min, max 판별
+			if(moveAvgArr[i][0] < minMax[i][0])
+			minMax[i][0] = moveAvgArr[i][0];
+			if(moveAvgArr[i][0] > minMax[i][1])
+			minMax[i][1] = moveAvgArr[i][0];
+			
+			// sum 구한 후 avg에 넣기
+			for (int j = 0; j < arrSize; j++)
+			{
+				sum += moveAvgArr[i][j];
+			}
+			moveAvgFilterValue[i] = sum / arrSize;
+		}
+		
+		for (int i = 0; i < indexIR; i++)
+		{
+			float temp;
+			temp = minMax[i][1] - minMax[i][0]; // max - min 저장
+			if(temp == 0) // 초기에 max - min이 0인 경우 0으로 나눌 수 없으므로 정규화 값 0으로 설정
+			{
+				normalization[i] = 0;
+				continue;
+			}
+			// 정규화 공식은 filtering value - min값을 max-min값으로 나누어줌
+			// ex) min: 100, max: 600이고 value가 300이면 0.4가 나와야하므로
+			// max-min = 500, value - min = 200, 200/500 = 0.4
+			// ex) value가 600인 경우 => value - min = 500, 500/500 = 1.0
+			// ex) value가 100인 경우 => value - min = 0, 0/100 = 0.0
+			normalization[i] = (float)(moveAvgFilterValue[i]-minMax[i][0]) / temp;
+		}
+		
+		PORTA = 0xFF;
+		
+		for (int i = 0; i < indexIR; i++)
+		{
+			if(normalization[i] >= 0.80)
+			{
+				PORTA &= ~(1 << i); // 해당하는 LED 켜기
+			}
+		}
+
+  if(print_flag) // LCD 출력과 UART의 경우 1초마다 갱신되게 하였음
+  {
+  .
+  . // LCD 및 UART 출력
+  .
+  }
+}
+}
+
+unsigned int Read_ADC(int i) // (i = PF 2-7)
+{
+	int index = i + 2;
+	ADMUX = 0x40 | index; // 해당 index의 ADC 활성화
+	_delay_us(3); // ADMUX 적용되는 delay 약 1.3us
+	
+	ADCSRA |= (1 << ADSC); // 변환 시작 ADSC = 1
+	while (ADCSRA & (1 << ADSC))
+	;
+	
+	return ADC;
+}
 ```
 
 ---
@@ -83,7 +194,7 @@ LCD에 IR센서 8개의 정규화 된 값을 띄운다.
 
 | 정면 동작 모습 |
 | :---: |
-| [작동 영상]() |
+| [작동 영상](https://drive.google.com/file/d/1UFM6ivjVSQsOC62rp9AArAQopDWS_TGk/view?usp=drive_link) |
 
 ---
 
@@ -92,7 +203,7 @@ LCD에 IR센서 8개의 정규화 된 값을 띄운다.
 
 | 도구명 (Tool) | 활용 영역 | 세부 사용 목적 및 내용 |
 | :--- | :--- | :--- |
-| **Gemini** |  |  |
+| **Gemini** | 개념정리, 디버깅 | MUX값 재설정 시 걸리는(적용되는) 시간, IR센서 값에 노이즈 끼는 경우의 수 |
 
 ### AI 활용 및 검증 원칙
 1. **코드 검증:** AI가 생성한 레지스터 설정 및 함수 코드는 데이터시트(ATmega128 Datasheet)와 비교 검증한 후 실제 오실로스코프/시리얼 모니터링을 거쳐 직접 수정 및 테스트하였습니다.
