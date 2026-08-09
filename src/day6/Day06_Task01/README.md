@@ -98,6 +98,15 @@ int main(void)
 .
 .
 .
+int moveAvgArr[indexIR][arrSize]; // 이동 평균 필터에 사용할 값 저장
+int moveAvgFilterValue[indexIR]; // 필터링 값
+	
+int minMax[indexIR][2]; // 정규화에 필요한 포트별 min, max 값 저장
+	
+float normalization[indexIR] = {0};
+.
+.
+.
 while (1) 
 {
 for (int i = 0; i < indexIR; i++)
