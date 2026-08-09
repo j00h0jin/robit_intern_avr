@@ -2,7 +2,7 @@
 
 > **광운대학교 로봇학부**  
 > **작성자:** 주호진  
-> **제출일:** 2026.08.00
+> **제출일:** 2026.08.09
 
 ---
 
@@ -33,10 +33,9 @@
 
 ```text
 [ATmega128]                 [Target Component]
- PORTA (PA0 ~ PA7)   ----->   8-Bit LED
- PORTB Pin 4 (PB4)   ----->   PWM Motor Control (OC0)
- PE0 (RXD0) / PE1    ----->   UART Serial Communication
- ADC0 (PF0)          ----->   Analog Sensor Input
+ PORTE (PE0 - PE1)               ----->   UART Serial Communication
+ PORTF (PF2 - PF7)               ----->   IR Sensor
+ PORTD (PD0 - PD1)               ----->   LCD(I2C)
 ```
 
 ### 주요 회로 특징
@@ -49,11 +48,10 @@
 > 구현부(.c), 선언부(.h)만 구조에 표기함.
 ```text
 ├── Day06_Task01/
-│   └── main.c # 메인 제어 루프 및 시스템 초기화
+│   ├── main.c     # 메인 제어 루프 및 시스템 초기화
+│   └── LCD_Text.c # LCD 제어 함수 파일
 ├── include/
-│   ├── timer.h
-│   ├── uart.h
-│   └── adc.h
+│   └── LCD_Text.h # LCD 제어 헤더 파일
 └── README.md
 ```
 
@@ -63,7 +61,7 @@
 
 ### 타이머/카운터 및 PWM 초기화 예시 (`main.c`)
 ```c
-asdasd
+temp
 ```
 
 ---
