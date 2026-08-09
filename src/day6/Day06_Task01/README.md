@@ -71,7 +71,7 @@ temp
 ### 동작 시나리오
 IR센서값을 이용하여 USART를 통해 터미널에 각각의 값을 띄운다.
 
-(IR센서 8개의 원본 값, 필터를 적용한 값, min값, max값, 정규화 값)
+(IR센서 8개의 원본 값, 필터를 적용한 값, min값, max값, 정규화 값(min 0.00 ~ max 1.00)
 
 <img width="987" height="424" alt="image" src="https://github.com/user-attachments/assets/bc7cac9a-c266-4855-886e-422b2d285e3c" />
 
